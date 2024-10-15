@@ -1,35 +1,8 @@
 "use strict";
 const { error } = require("console");
 const mongoose = require("mongoose");
+const HelpTicket = require('../models/ticket')
 
-const IssueSchema = new mongoose.Schema({
-  project: String,
-  issue_title: {
-    type: String,
-    required: true,
-  },
-  issue_text: {
-    type: String,
-    required: true,
-  },
-  created_on: {
-    type: Date,
-    default: Date.now,
-  },
-  updated_on: {
-    type: Date,
-    default: Date.now,
-  },
-  created_by: String,
-  assigned_to: String,
-  open: {
-    type: Boolean,
-    default: true,
-  },
-  status_text: String,
-});
-
-const HelpTicket = mongoose.model("IssueTracker", IssueSchema);
 
 module.exports = function (app) {
   app
@@ -41,7 +14,6 @@ module.exports = function (app) {
       if (req.query) {
         query = { ...query, ...req.query };
       }
-      console.log(query);
       const docs = await HelpTicket.find(query);
       res.json(docs);
     })
@@ -117,13 +89,17 @@ module.exports = function (app) {
         newDoc.open = body.open;
       }
       try {
-        await HelpTicket.findOneAndUpdate(
+        const verify = await HelpTicket.findOneAndUpdate(
           {
             project: project,
             _id: req.body._id,
           },
           { $set: newDoc }
         );
+        if (!verify) {
+          res.json({ error: "could not update", _id: req.body._id });
+          return
+        }
         res.json({ result: "successfully updated", _id: req.body._id });
       } catch (error) {
         res.json({ error: "could not update", _id: req.body._id });
@@ -137,10 +113,14 @@ module.exports = function (app) {
         return;
       }
       try {
-        await HelpTicket.findOneAndDelete({
+        const verify = await HelpTicket.findOneAndDelete({
           project: project,
           _id: req.body._id,
         });
+        if (!verify) {
+          res.json({ error: "could not delete", _id: req.body._id });
+          return;
+        }
         res.json({ result: "successfully deleted", _id: req.body._id });
       } catch (error) {
         res.json({ error: "could not delete", _id: req.body._id });
