@@ -9,8 +9,11 @@ require('dotenv').config();
 const apiRoutes         = require('./routes/api.js');
 const fccTestingRoutes  = require('./routes/fcctesting.js');
 const runner            = require('./test-runner');
+const mongoose          = require('mongoose');
 
 let app = express();
+
+mongoose.connect(process.env.MONGO_URI, { dbName: "database" })
 
 app.use('/public', express.static(process.cwd() + '/public'));
 
