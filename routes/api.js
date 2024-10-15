@@ -1,4 +1,5 @@
 "use strict";
+const { error } = require("console");
 const mongoose = require("mongoose");
 
 const IssueSchema = new mongoose.Schema({
@@ -37,15 +38,24 @@ module.exports = function (app) {
     .get(async function (req, res) {
       let project = req.params.project;
       let query = { project: project };
-      if (Object.keys(req.query) > 0) {
+      if (req.query) {
         query = { ...query, ...req.query };
       }
+      console.log(query);
       const docs = await HelpTicket.find(query);
       res.json(docs);
     })
 
     .post(async (req, res) => {
       let project = req.params.project;
+      if (
+        !req.body.issue_title ||
+        !req.body.issue_text ||
+        !req.body.created_by
+      ) {
+        res.json({ error: "required field(s) missing" });
+        return;
+      }
       const helpTicket = new HelpTicket({
         project: project,
         issue_title: req.body.issue_title,
@@ -72,6 +82,22 @@ module.exports = function (app) {
       let project = req.params.project;
       const body = req.body;
       let newDoc = { updated_on: new Date() };
+      // verify all information needed is present
+      if (!body._id) {
+        res.json({ error: "missing _id" });
+        return;
+      }
+      if (
+        !body.issue_text &&
+        !body.issue_title &&
+        !body.created_by &&
+        !body.assigned_to &&
+        !body.open
+      ) {
+        res.json({ error: "no update field(s) sent", _id: body._id });
+        return;
+      }
+      // only change updated fields to preserve data
       if (body.issue_title) {
         newDoc.issue_title = body.issue_title;
       }
@@ -90,18 +116,26 @@ module.exports = function (app) {
       if (body.open) {
         newDoc.open = body.open;
       }
-      await HelpTicket.findOneAndUpdate(
-        {
-          project: project,
-          _id: req.body._id,
-        },
-        { $set: newDoc }
-      );
-      res.json({ result: "successfully updated", _id: req.body._id });
+      try {
+        await HelpTicket.findOneAndUpdate(
+          {
+            project: project,
+            _id: req.body._id,
+          },
+          { $set: newDoc }
+        );
+        res.json({ result: "successfully updated", _id: req.body._id });
+      } catch (error) {
+        res.json({ error: "could not update", _id: req.body._id });
+      }
     })
 
     .delete(async function (req, res) {
       let project = req.params.project;
+      if (!req.body._id) {
+        res.json({ error: "missing _id" });
+        return;
+      }
       try {
         await HelpTicket.findOneAndDelete({
           project: project,
@@ -109,7 +143,7 @@ module.exports = function (app) {
         });
         res.json({ result: "successfully deleted", _id: req.body._id });
       } catch (error) {
-        res.json({ result: "Error deleting.  Try again." });
+        res.json({ error: "could not delete", _id: req.body._id });
       }
     });
 };
